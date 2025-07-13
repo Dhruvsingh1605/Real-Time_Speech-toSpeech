@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Voice Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap');
+        
+        :root {
+            --primary: #6e44ff;
+            --secondary: #ff2d75;
+            --accent: #00e5ff;
+            --dark: #0f0a1a;
+            --light: #f8f9fa;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--dark);
+            color: var(--light);
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .cyber-font {
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .glassmorphic {
+            background: rgba(15, 10, 26, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        
+        .neon-glow {
+            box-shadow: 0 0 10px var(--primary), 
+                         0 0 20px var(--primary), 
+                         0 0 30px var(--primary);
+        }
+        
+        .neon-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(110, 68, 255, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 15px rgba(110, 68, 255, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(110, 68, 255, 0);
+            }
+        }
+        
+        .wave-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+        
+        .wave {
+            position: absolute;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.7;
+            mix-blend-mode: screen;
+            pointer-events: none;
+        }
+        
+        .control-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px currentColor;
+        }
+        
+        #visualizer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.5;
+        }
+        
+        .frequency-bar {
+            position: absolute;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(to top, var(--primary), var(--accent));
+            border-radius: 2px 2px 0 0;
+            transform-origin: bottom;
+        }
+    </style>
+</head>
+<body class="relative">
+    <div class="wave-container" id="waveContainer"></div>
+    <canvas id="visualizer"></canvas>
+    
+    <div class="flex flex-col h-full">
+        <!-- Header -->
+        <header class="flex justify-between items-center p-4 glassmorphic">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"></div>
+                <span class="cyber-font text-xl bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">VOICE.AI</span>
+            </div>
+            
+            <div id="liveIndicator" class="hidden items-center space-x-2 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/50">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                <span class="text-xs">LISTENING</span>
+            </div>
+            
+            <div class="w-8 h-8 rounded-full glassmorphic flex items-center justify-center">
+                <i class="fas fa-cog text-purple-400"></i>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col items-center justify-center p-4 relative">
+            <div class="relative">
+                <div id="micButton" class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 shadow-lg flex items-center justify-center cursor-pointer neon-glow hover:from-purple-500 hover:to-pink-400 transition-all duration-300">
+                    <i class="fas fa-microphone text-white text-3xl"></i>
+                </div>
+                
+                <div id="activeRing" class="absolute inset-0 rounded-full border-4 border-purple-400 opacity-0 scale-125 transition-all duration-300 pointer-events-none"></div>
+            </div>
+            
+            <div id="statusText" class="mt-6 text-center max-w-md text-gray-400">
+                Tap the microphone to start speaking
+            </div>
+        </main>
+        
+        <!-- Controls -->
+        <footer class="p-4 glassmorphic">
+            <div class="flex justify-around">
+                <button class="control-btn w-12 h-12 rounded-full bg-blue-500/20 border border-blue-500/50 text-blue-400 flex items-center justify-center">
+                    <i class="fas fa-video"></i>
+                </button>
+                <button class="control-btn w-12 h-12 rounded-full bg-green-500/20 border border-green-500/50 text-green-400 flex items-center justify-center">
+                    <i class="fas fa-share-square"></i>
+                </button>
+                <button id="pauseBtn" class="control-btn w-12 h-12 rounded-full bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 flex items-center justify-center hidden">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button class="control-btn w-12 h-12 rounded-full bg-red-500/20 border border-red-500/50 text-red-400 flex items-center justify-center">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const micButton = document.getElementById('micButton');
+            const liveIndicator = document.getElementById('liveIndicator');
+            const statusText = document.getElementById('statusText');
+            const activeRing = document.getElementById('activeRing');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const waveContainer = document.getElementById('waveContainer');
+            const visualizer = document.getElementById('visualizer');
+            const ctx = visualizer.getContext('2d');
+            
+            let isListening = false;
+            let audioContext;
+            let analyser;
+            let microphone;
+            let animationId;
+            let waves = [];
+            let dataArray;
+            let stream;
+            
+            // Setup canvas
+            visualizer.width = window.innerWidth;
+            visualizer.height = window.innerHeight;
+            
+            // Resize handler
+            window.addEventListener('resize', () => {
+                visualizer.width = window.innerWidth;
+                visualizer.height = window.innerHeight;
+            });
+            
+            // Mic button click handler
+            micButton.addEventListener('click', toggleMicrophone);
+            
+            // Toggle microphone function
+            async function toggleMicrophone() {
+                if (isListening) {
+                    stopListening();
+                } else {
+                    await startListening();
+                }
+            }
+            
+            // Start listening
+            async function startListening() {
+                try {
+                    isListening = true;
+                    liveIndicator.classList.remove('hidden');
+                    statusText.textContent = "Listening... Speak now";
+                    activeRing.classList.add('opacity-100');
+                    pauseBtn.classList.remove('hidden');
+                    
+                    // Create audio context
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    
+                    // Get microphone stream
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    microphone.connect(analyser);
+                    
+                    // Prepare for visualization
+                    const bufferLength = analyser.frequencyBinCount;
+                    dataArray = new Uint8Array(bufferLength);
+                    
+                    // Start visualization
+                    visualize();
+                    
+                    // Connect to WebSocket (simulated)
+                    connectWebSocket();
+                    
+                } catch (error) {
+                    console.error('Error accessing microphone:', error);
+                    statusText.textContent = "Microphone access denied";
+                    isListening = false;
+                    liveIndicator.classList.add('hidden');
+                    activeRing.classList.remove('opacity-100');
+                }
+            }
+            
+            // Stop listening
+            function stopListening() {
+                isListening = false;
+                liveIndicator.classList.add('hidden');
+                statusText.textContent = "Tap the microphone to start speaking";
+                activeRing.classList.remove('opacity-100');
+                pauseBtn.classList.add('hidden');
+                
+                // Stop audio processing
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (audioContext) {
+                    audioContext.close();
+                }
+                
+                // Stop visualization
+                cancelAnimationFrame(animationId);
+                
+                // Clear waves
+                waves = [];
+                waveContainer.innerHTML = '';
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, visualizer.width, visualizer.height);
+            }
+            
+            // Visualize audio
+            function visualize() {
+                animationId = requestAnimationFrame(visualize);
+                
+                analyser.getByteFrequencyData(dataArray);
+                
+                // Clear canvas
+                ctx.fillStyle = 'rgb(15, 10, 26)';
+                ctx.fillRect(0, 0, visualizer.width, visualizer.height);
+                
+                // Draw waveform
+                const centerX = visualizer.width / 2;
+                const centerY = visualizer.height / 2;
+                const radius = Math.min(visualizer.width, visualizer.height) * 0.4;
+                
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = `hsl(${dataArray[10]}, 100%, 50%)`;
+                ctx.beginPath();
+                
+                for (let i = 0; i < dataArray.length; i++) {
+                    const angle = (i / dataArray.length) * Math.PI * 2;
+                    const value = dataArray[i] / 255;
+                    const adjustedRadius = radius + (value * 100);
+                    
+                    const x = centerX + Math.cos(angle) * adjustedRadius;
+                    const y = centerY + Math.sin(angle) * adjustedRadius;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                ctx.closePath();
+                ctx.stroke();
+                
+                // Create waves based on audio input
+                if (Math.random() < 0.3) {
+                    createWave(dataArray[20] / 255);
+                }
+                
+                // Update existing waves
+                updateWaves();
+            }
+            
+            // Create a new wave
+            function createWave(intensity) {
+                const size = 50 + (intensity * 400);
+                const wave = document.createElement('div');
+                wave.className = 'wave';
+                wave.style.width = `${size}px`;
+                wave.style.height = `${size}px`;
+                
+                // Color based on frequency
+                const hue = 200 + (intensity * 120);
+                wave.style.backgroundColor = `hsla(${hue}, 80%, 60%, 0.7)`;
+                wave.style.boxShadow = `0 0 20px hsla(${hue}, 100%, 70%, 0.7)`;
+                
+                // Position waves more dynamically
+                const posX = 50 + (Math.random() * 40 - 20);
+                const posY = 50 + (Math.random() * 40 - 20);
+                wave.style.left = `${posX}%`;
+                wave.style.top = `${posY}%`;
+                
+                waveContainer.appendChild(wave);
+                
+                waves.push({
+                    element: wave,
+                    size: size,
+                    growth: 1 + (intensity * 4),
+                    opacity: 0.7,
+                    hue: hue
+                });
+            }
+            
+            // Update all waves
+            function updateWaves() {
+                for (let i = waves.length - 1; i >= 0; i--) {
+                    const wave = waves[i];
+                    wave.size *= wave.growth;
+                    wave.opacity -= 0.01;
+                    
+                    if (wave.opacity <= 0) {
+                        wave.element.remove();
+                        waves.splice(i, 1);
+                    } else {
+                        wave.element.style.width = `${wave.size}px`;
+                        wave.element.style.height = `${wave.size}px`;
+                        wave.element.style.opacity = wave.opacity;
+                        wave.element.style.transform = `translate(-50%, -50%) scale(${1 + (1 - wave.opacity)})`;
+                    }
+                }
+            }
+            
+            // Simulate WebSocket connection
+            function connectWebSocket() {
+                // In a real app, this would connect to your backend WebSocket
+                console.log("Connecting to WebSocket...");
+                
+                // Simulate receiving a response after 3 seconds
+                setTimeout(() => {
+                    if (isListening) {
+                        statusText.textContent = "Processing your request...";
+                        
+                        // Simulate receiving audio response after another 2 seconds
+                        setTimeout(() => {
+                            if (isListening) {
+                                statusText.textContent = "Here's what I found...";
+                                
+                                // Create a more intense visualization for the response
+                                for (let i = 0; i < 10; i++) {
+                                    setTimeout(() => {
+                                        createWave(0.8 + Math.random() * 0.2);
+                                    }, i * 100);
+                                }
+                            }
+                        }, 2000);
+                    }
+                }, 3000);
+            }
+            
+            // Pause button handler
+            pauseBtn.addEventListener('click', () => {
+                if (isListening) {
+                    stopListening();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
